@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 @WebMvcTest(GreeterController.class)
 public class GreetControllerTest {
@@ -27,21 +28,54 @@ public class GreetControllerTest {
   @MockBean
   private Clock clock;
 
+  private Clock prepareClock (LocalDateTime time) {
+    return Clock
+        .fixed(time.toInstant(ZoneOffset.ofHours(-3)), ZoneId.systemDefault());
+  }
+
+  private void setupMocksForClock(Clock mockClock) {
+    when(clock.instant()).thenReturn(mockClock.instant());
+    when(clock.getZone()).thenReturn(mockClock.getZone());
+  }
+
+  private ResultActions doDefaultAssertions ()
+      throws Exception {
+    return mockMvc.perform(get("/"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("greet"));
+  }
+
   @Test
   public void testGreetMorning ()
       throws Exception {
-    Clock fixedClock = Clock.fixed(
-        LocalDateTime.of(2023, 12, 8, 11, 25, 00).toInstant(ZoneOffset.UTC),
-        ZoneId.systemDefault()
-    );
+    Clock fixedClock = prepareClock(LocalDateTime.of(2023, 12, 8, 11, 25, 00));
 
-    when(clock.instant()).thenReturn(fixedClock.instant());
-    when(clock.getZone()).thenReturn(fixedClock.getZone());
+    setupMocksForClock(fixedClock);
 
-    mockMvc.perform(get("/"))
-        .andExpect(status().isOk())
-        .andExpect(view().name("greet"))
+    doDefaultAssertions()
         .andExpect(content().string(containsString("Good Morning")));
+  }
+
+  @Test
+  public void testGreetAfternoon ()
+      throws Exception {
+    Clock fixedClock = prepareClock(LocalDateTime.of(2023, 12, 8, 12, 42, 00));
+
+    setupMocksForClock(fixedClock);
+
+    doDefaultAssertions()
+        .andExpect(content().string(containsString("Good Afternoon")));
+  }
+
+  @Test
+  public void testGreetNight ()
+      throws Exception {
+    var fixedClock = prepareClock(LocalDateTime.of(2023, 12, 8, 18, 05));
+
+    setupMocksForClock(fixedClock);
+
+    doDefaultAssertions()
+        .andExpect(content().string(containsString("Good Night")));
   }
 
 }
